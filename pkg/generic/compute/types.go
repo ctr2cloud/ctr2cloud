@@ -21,7 +21,7 @@ type Address struct {
 
 type Provider interface {
 	List() ([]InstanceStatus, error)
-	Create(*InstanceSpec) error
+	Create(InstanceSpec) error
 	Delete(string) error
 	GetIpAddresses(context.Context, string) ([]Address, error)
 	GetCommandExecutor(string) (*CommandExecutor, error)

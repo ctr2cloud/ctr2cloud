@@ -66,7 +66,7 @@ var createCmd = &cobra.Command{
 		if !ok {
 			return fmt.Errorf("provider %q not found", providerName)
 		}
-		err := provider.Create(&compute.InstanceSpec{
+		err := provider.Create(compute.InstanceSpec{
 			Name: args[0],
 		})
 		if err != nil {

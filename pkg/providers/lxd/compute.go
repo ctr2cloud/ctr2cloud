@@ -44,7 +44,7 @@ func (p *Provider) List() ([]compute.InstanceStatus, error) {
 	}), nil
 }
 
-func (p *Provider) Create(spec *compute.InstanceSpec) error {
+func (p *Provider) Create(spec compute.InstanceSpec) error {
 	id := fmt.Sprintf("ctr2cloud-%s-%s", spec.Name, lo.RandomString(5, lo.LettersCharset))
 	createOp, err := p.client.CreateInstance(api.InstancesPost{
 		Name: id,

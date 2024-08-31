@@ -46,24 +46,24 @@ func (p *Provisioner) GetPackageVersion(ctx context.Context, packageName string)
 	return stateLine[1], nil
 }
 
-func (p *Provisioner) EnsurePackageInstalled(ctx context.Context, packageName string) error {
+func (p *Provisioner) EnsurePackageInstalled(ctx context.Context, packageName string) (bool, error) {
 	logger := zapctx.Logger(ctx)
 	_, err := p.GetPackageVersion(ctx, packageName)
 	if err == nil {
 		logger.Debug("package already installed", zap.String("package", packageName))
-		return nil
+		return false, nil
 	}
 
 	aptUpdateRes, err := p.CommandExecutor.Exec(ctx, "apt update")
 	logger.Debug("apt update", zap.Error(err), zap.ByteString("output", aptUpdateRes))
 	if err != nil {
-		return fmt.Errorf("apt update: %w", err)
+		return false, fmt.Errorf("apt update: %w", err)
 	}
 
 	aptInstallRes, err := p.CommandExecutor.Exec(ctx, "apt install -qy "+packageName)
 	logger.Debug("apt install", zap.Error(err), zap.ByteString("output", aptInstallRes))
 	if err != nil {
-		return fmt.Errorf("apt install: %w", err)
+		return false, fmt.Errorf("apt install: %w", err)
 	}
-	return nil
+	return true, nil
 }

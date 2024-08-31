@@ -171,6 +171,11 @@ var installCmd = &cobra.Command{
 		}
 
 		aptProvisioner := apt.Provisioner{CommandExecutor: executor}
-		return aptProvisioner.EnsurePackageInstalled(ctx, args[0])
+		wasPackageInstalled, err := aptProvisioner.EnsurePackageInstalled(ctx, args[0])
+		if err != nil {
+			return fmt.Errorf("installing package: %w", err)
+		}
+		cmd.Printf("Package %s is installed (changed: %t)\n", args[0], wasPackageInstalled)
+		return nil
 	},
 }

@@ -1,0 +1,62 @@
+name: ci
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+concurrency: 
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test-lxd:
+    runs-on: ubuntu-22.04
+    env:
+      # this is specifically important to the test step
+      LXD_SOCKET: /var/snap/lxd/common/lxd/unix.socket
+    steps:
+      - uses: actions/checkout@v4
+      - uses: canonical/setup-lxd@8fb85546a934dfb994becf81341dd387ffe6aabb
+        with:
+          # we use this version specifically because it should already be installed on
+          # ubutnu 22.04
+          channel: 5.0/stable
+      # for whatever reason setup-lxd does not handle this correctly
+      - name: fix permissions
+        run: |
+          id
+          sudo chown root:adm "$LXD_SOCKET"
+          ls -lth "$LXD_SOCKET"
+          lxc ls
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - name: setup gotestfmt
+        uses: gotesttools/gotestfmt-action@v2
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+      - name: test
+        run: go test -json -v ./... 2>&1 | tee /tmp/gotest.log | gotestfmt
+      - name: Upload test log
+        uses: actions/upload-artifact@v2
+        with:
+          name: test-log
+          path: /tmp/gotest.log
+          if-no-files-found: error
+  ok:
+    runs-on: ubuntu-latest
+    needs:
+      - test-lxd
+    if: always()
+    steps:
+      - name: check test-lxd result
+        run: |
+          result="${{ needs.test-lxd.result }}"
+          echo "test-lxd result: $result"
+          if [[ $result == "success" ]]; then
+            exit 0
+          else
+            exit 1
+          fi

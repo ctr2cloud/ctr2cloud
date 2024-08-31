@@ -4,9 +4,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"path"
 	"strings"
 
 	"github.com/ctr2cloud/ctr2cloud/pkg/generic/compute"
+	"github.com/ctr2cloud/ctr2cloud/pkg/provisioners/file"
 	"github.com/juju/zaputil/zapctx"
 	"go.uber.org/zap"
 )
@@ -66,4 +68,51 @@ func (p *Provisioner) EnsurePackageInstalled(ctx context.Context, packageName st
 		return false, fmt.Errorf("apt install: %w", err)
 	}
 	return true, nil
+}
+
+// ensureAptKey ensures that the given ASCII armorred key is installed in the apt keyring
+func (p *Provisioner) ensureAptKey(ctx context.Context, keyName, key string) (bool, error) {
+	fProvisioner := file.Provisioner{CommandExecutor: p.CommandExecutor}
+	keyPath := path.Join("/etc/apt/trusted.gpg.d", keyName+".asc")
+	return fProvisioner.EnsureFileContentsString(ctx, keyPath, key)
+}
+
+// EnsureRepository ensures that the given repository is added to the apt sources
+func (p *Provisioner) ensureRepository(ctx context.Context, name, specification string) (bool, error) {
+	fProvisioner := file.Provisioner{CommandExecutor: p.CommandExecutor}
+	repoPath := path.Join("/etc/apt/sources.list.d", name+".list")
+	return fProvisioner.EnsureFileContentsString(ctx, repoPath, specification)
+}
+
+type EnsureRepositoryArgs struct {
+	Name string
+	// ASCII armored key
+	Key string
+	// sources.list line(s) for the repository
+	Specification string
+	// whether to update the apt cache after adding the repository
+	Update bool
+}
+
+// EnsureRepository ensures that the given repository is added to the apt sources
+// TODO: detect transport https
+// TODO: support arch/codename interpolation
+func (p *Provisioner) EnsureRepository(ctx context.Context, args EnsureRepositoryArgs) (bool, error) {
+	logger := zapctx.Logger(ctx)
+	keyUpdated, err := p.ensureAptKey(ctx, args.Name, args.Key)
+	if err != nil {
+		return false, fmt.Errorf("ensuring apt key: %w", err)
+	}
+	repositoryUpdated, err := p.ensureRepository(ctx, args.Name, args.Specification)
+	if err != nil {
+		return false, fmt.Errorf("ensuring repository: %w", err)
+	}
+	if args.Update && (keyUpdated || repositoryUpdated) {
+		aptUpdateRes, err := p.CommandExecutor.Exec(ctx, "apt update")
+		logger.Debug("apt update", zap.Error(err), zap.ByteString("output", aptUpdateRes))
+		if err != nil {
+			return false, fmt.Errorf("apt update after repo add: %w", err)
+		}
+	}
+	return keyUpdated || repositoryUpdated, nil
 }

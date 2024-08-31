@@ -1,0 +1,48 @@
+name: ci
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+jobs:
+  test-lxd:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: canonical/setup-lxd@8fb85546a934dfb994becf81341dd387ffe6aabb
+        with:
+          channel: 5.21/stable
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - name: setup gotestfmt
+        uses: gotesttools/gotestfmt-action@v2
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+      - name: test
+        run: go test -json -v ./... 2>&1 | tee /tmp/gotest.log | gotestfmt
+        env:
+          LXD_SOCKET: /var/snap/lxd/common/lxd-user/unix.socket
+      - name: Upload test log
+        uses: actions/upload-artifact@v2
+        with:
+          name: test-log
+          path: /tmp/gotest.log
+          if-no-files-found: error
+  ok:
+    runs-on: ubuntu-latest
+    needs:
+      - test-lxd
+    if: always()
+    steps:
+      - name: check test-lxd result
+        run: |
+          result="${{ needs.test-lxd.result }}"
+          echo "test-lxd result: $result"
+          if [[ $result == "success" ]]; then
+            exit 0
+          else
+            exit 1
+          fi

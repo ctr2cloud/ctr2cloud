@@ -9,6 +9,8 @@ import (
 	"time"
 
 	public "github.com/ctr2cloud/ctr2cloud/pkg/generic/compute"
+	"github.com/juju/zaputil/zapctx"
+	"go.uber.org/zap"
 )
 
 var PrimitiveCommandExecutorShell = []string{"env", "PS1=___${?}___> ", "/bin/sh", "-i"}
@@ -47,6 +49,8 @@ func NewPrimitiveCommandExecutor() *PrimitiveCommandExecutor {
 func (e *PrimitiveCommandExecutor) ExecStream(ctx context.Context, cmd string) chan public.ExecStreamResult {
 	resChan := make(chan public.ExecStreamResult)
 
+	logger := zapctx.Logger(ctx).With(zap.String("sub", "PrimitiveCommandExecutor.ExecStream"))
+
 	// if this is the first command, we need to wait for a clean shell
 	if e.firstCommand {
 		firstCtx, cancel := context.WithTimeout(ctx, time.Second*2)
@@ -64,6 +68,7 @@ func (e *PrimitiveCommandExecutor) ExecStream(ctx context.Context, cmd string) c
 					close(resChan)
 					return resChan
 				}
+				logger.Debug("got stderr data (waiting for clean shell)", zap.ByteString("data", data))
 				shellMatch := PrimitiveCommandExecutorShellRegex.FindAllIndex(data, 10)
 				if shellMatch == nil {
 					continue
@@ -77,6 +82,8 @@ func (e *PrimitiveCommandExecutor) ExecStream(ctx context.Context, cmd string) c
 		e.firstCommand = false
 	}
 
+	logger.Debug("got clean shell")
+
 	_, err := e.stdinWriter.Write([]byte(cmd + "\n"))
 	if err != nil {
 		resChan <- public.ExecStreamResult{Error: err}
@@ -84,9 +91,12 @@ func (e *PrimitiveCommandExecutor) ExecStream(ctx context.Context, cmd string) c
 		return resChan
 	}
 
+	hasFirstShell := false
 	go func() {
 		defer func() {
+			logger.Debug("closing resChan")
 			close(resChan)
+			logger.Debug("resChan closed")
 		}()
 		for {
 			select {
@@ -98,32 +108,52 @@ func (e *PrimitiveCommandExecutor) ExecStream(ctx context.Context, cmd string) c
 					resChan <- public.ExecStreamResult{Error: io.EOF}
 					return
 				}
-				shellMatch := PrimitiveCommandExecutorShellRegex.FindSubmatchIndex(data)
-				if shellMatch != nil {
-					if len(shellMatch) != 4 {
+				shellMatchs := PrimitiveCommandExecutorShellRegex.FindAllSubmatchIndex(data, 10)
+				if shellMatchs != nil {
+					if len(shellMatchs[0]) != 4 {
 						resChan <- public.ExecStreamResult{Error: fmt.Errorf("unable to parse return code: %s", data)}
 						return
 					}
-					cleanData := data[shellMatch[1]:]
+					cleanData := data
+					for i := len(shellMatchs) - 1; i >= 0; i-- {
+						shellMatch := shellMatchs[i]
+						cleanData = append(cleanData[:shellMatch[0]], cleanData[shellMatch[1]:]...)
+					}
 					if len(cleanData) > 0 {
 						resChan <- public.ExecStreamResult{Data: cleanData, DataType: public.ExecStreamDataTypeStderr}
 					}
-					returnCode, err := strconv.ParseInt(string(data[shellMatch[2]:shellMatch[3]]), 10, 32)
-					if err != nil {
-						resChan <- public.ExecStreamResult{Error: fmt.Errorf("unable to parse return code: %w", err)}
+					if hasFirstShell {
+						returnCodeStr := string(data[shellMatchs[0][2]:shellMatchs[0][3]])
+						logger.Debug("got return code", zap.String("returnCode", returnCodeStr))
+						returnCode, err := strconv.ParseInt(returnCodeStr, 10, 32)
+						if err != nil {
+							resChan <- public.ExecStreamResult{Error: fmt.Errorf("unable to parse return code: %w", err)}
+							return
+						}
+						if returnCode != 0 {
+							resChan <- public.ExecStreamResult{Error: public.CommandExecutorError{Code: int(returnCode)}}
+						}
 						return
 					}
-					if returnCode != 0 {
-						resChan <- public.ExecStreamResult{Error: public.CommandExecutorError{Code: int(returnCode)}}
+					// make sure we can get a clean shell prompt before returning
+					// to make sure we're not accidently parsing an unxpected one
+					// the prompt will still know the error code
+					hasFirstShell = true
+					_, err = e.stdinWriter.Write([]byte("\n"))
+					if err != nil {
+						resChan <- public.ExecStreamResult{Error: err}
+						close(resChan)
+						return
 					}
-					return
+				} else {
+					resChan <- public.ExecStreamResult{Data: data, DataType: public.ExecStreamDataTypeStderr}
 				}
-				resChan <- public.ExecStreamResult{Data: data, DataType: public.ExecStreamDataTypeStderr}
 			case data, ok := <-e.stdout:
 				if !ok {
 					resChan <- public.ExecStreamResult{Error: io.EOF}
 					return
 				}
+
 				resChan <- public.ExecStreamResult{Data: data, DataType: public.ExecStreamDataTypeStdout}
 			}
 		}

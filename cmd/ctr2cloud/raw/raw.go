@@ -1,12 +1,16 @@
 package raw
 
 import (
+	"context"
 	"fmt"
 	"strings"
 
 	"github.com/ctr2cloud/ctr2cloud/pkg/generic/compute"
 	"github.com/ctr2cloud/ctr2cloud/pkg/providers/auto"
+	"github.com/ctr2cloud/ctr2cloud/pkg/provisioners/apt"
+	"github.com/juju/zaputil/zapctx"
 	"github.com/spf13/cobra"
+	"go.uber.org/zap"
 )
 
 const (
@@ -25,10 +29,22 @@ func init() {
 	execCmd.MarkFlagRequired(instanceFlag)
 	execFlags.Bool(noStreamFlag, false, "execute command without streaming output")
 
+	installCmd.Flags().StringP(instanceFlag, "i", "", "instance to install package on")
+	installCmd.MarkFlagRequired(instanceFlag)
+
 	Cmd.AddCommand(listCmd)
 	Cmd.AddCommand(createCmd)
 	Cmd.AddCommand(deleteCmd)
 	Cmd.AddCommand(execCmd)
+	Cmd.AddCommand(installCmd)
+}
+
+func getLogger(cmd *cobra.Command) (context.Context, *zap.Logger) {
+	logger, err := zap.NewDevelopment()
+	if err != nil {
+		panic(err)
+	}
+	return zapctx.WithLogger(cmd.Context(), logger), logger
 }
 
 var Cmd = &cobra.Command{
@@ -67,7 +83,8 @@ var createCmd = &cobra.Command{
 			return fmt.Errorf("provider %q not found", providerName)
 		}
 		err := provider.Create(compute.InstanceSpec{
-			Name: args[0],
+			Name:  args[0],
+			Image: "ubuntu:20.04",
 		})
 		if err != nil {
 			return fmt.Errorf("creating instance: %w", err)
@@ -128,5 +145,32 @@ var execCmd = &cobra.Command{
 			fmt.Printf("%s", res.Data)
 		}
 		return nil
+	},
+}
+
+var installCmd = &cobra.Command{
+	Use:   "install",
+	Short: "install a package on an instance",
+	RunE: func(cmd *cobra.Command, args []string) error {
+		providerName, _ := cmd.Flags().GetString(providerFlag)
+		provider, ok := auto.Providers[providerName]
+		if !ok {
+			return fmt.Errorf("provider %q not found", providerName)
+		}
+
+		ctx, logger := getLogger(cmd)
+
+		logger.Debug("my debug")
+		logger.Info("my info")
+
+		instanceName, _ := cmd.Flags().GetString(instanceFlag)
+
+		executor, err := provider.GetCommandExecutor(instanceName)
+		if err != nil {
+			return fmt.Errorf("getting command executor: %w", err)
+		}
+
+		aptProvisioner := apt.Provisioner{CommandExecutor: executor}
+		return aptProvisioner.EnsurePackageInstalled(ctx, args[0])
 	},
 }

@@ -4,6 +4,9 @@ import (
 	"bytes"
 	"context"
 	"strconv"
+
+	"github.com/juju/zaputil/zapctx"
+	"go.uber.org/zap"
 )
 
 type ExecStreamDataType int
@@ -55,22 +58,28 @@ type CommandExecutor struct {
 func (e *CommandExecutor) Exec(ctx context.Context, cmd string) ([]byte, error) {
 	buf := new(bytes.Buffer)
 	resChan := e.MinimalCommandExecutor.ExecStream(ctx, cmd)
+	logger := zapctx.Logger(ctx).With(zap.String("sub", "CommandExecutor.Exec"))
+	var err error
 	for res := range resChan {
+		// do not return the error immediately to allow resChan to close
 		if res.Error != nil {
-			return nil, res.Error
+			logger.Debug("command error", zap.Error(res.Error))
+			err = res.Error
 		}
-		_, err := buf.Write(res.Data)
-		if err != nil {
-			return nil, err
+		if res.Data != nil {
+			_, err := buf.Write(res.Data)
+			if err != nil {
+				return buf.Bytes(), err
+			}
 		}
 	}
-	return buf.Bytes(), nil
+	return buf.Bytes(), err
 }
 
 func (e *CommandExecutor) ExecString(ctx context.Context, cmd string) (string, error) {
 	data, err := e.Exec(ctx, cmd)
 	if err != nil {
-		return "", err
+		return string(data), err
 	}
 	return string(data), nil
 }

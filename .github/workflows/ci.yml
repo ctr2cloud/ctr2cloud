@@ -14,6 +14,14 @@ jobs:
       - uses: canonical/setup-lxd@8fb85546a934dfb994becf81341dd387ffe6aabb
         with:
           channel: 5.21/stable
+      - run: |
+          echo "remotes"
+          lxc remote list
+          echo "permissions"
+          ls -lth /var/snap/lxd/common/lxd-user/unix.socket
+          echo "id"
+          id
+
       - uses: actions/setup-go@v5
         with:
           go-version-file: go.mod

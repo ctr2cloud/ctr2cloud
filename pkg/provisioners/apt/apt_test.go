@@ -62,6 +62,8 @@ FsEME5XNmBGdNEo2flRVFfpG1IWds2Ba3IsdbYd9nzmbBW7/n0InVRDrIg==
 =9QWY
 -----END PGP PUBLIC KEY BLOCK-----`
 
+const nvidiaCustomPackage = "libnvidia-container1"
+
 func TestCustomPackage(t *testing.T) {
 	executor, err := test.GetLXDExecutorFactory(t, testEnsureFileContentsInstanceName)()
 	ctx, r := test.DefaultPreamble(t, 45*time.Second)
@@ -80,6 +82,14 @@ func TestCustomPackage(t *testing.T) {
 	r.True(updated, "repository should have been updated")
 
 	updated, err = aptProvisioner.EnsureRepository(ctx, args)
+	r.NoError(err)
+	r.False(updated, "second run should do nothing")
+
+	updated, err = aptProvisioner.EnsurePackageInstalled(ctx, nvidiaCustomPackage)
+	r.NoError(err)
+	r.True(updated, "package should have been installed")
+
+	updated, err = aptProvisioner.EnsurePackageInstalled(ctx, nvidiaCustomPackage)
 	r.NoError(err)
 	r.False(updated, "second run should do nothing")
 }

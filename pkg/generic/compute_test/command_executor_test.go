@@ -71,7 +71,7 @@ func TestExec(t *testing.T) {
 			Command:     "false",
 			ExpectError: true,
 		},
-		// docker.io not installable until first apt updatd
+		// docker.io not installable until first apt updated
 		{
 			Command:     "apt install -yq docker.io",
 			ExpectError: true,

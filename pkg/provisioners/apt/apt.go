@@ -31,6 +31,7 @@ func (p *Provisioner) GetPackageVersion(ctx context.Context, packageName string)
 	if err != nil {
 		return "", fmt.Errorf("dpkg query: %w", err)
 	}
+	currentState = strings.Trim(currentState, " \n")
 	stateLines := strings.Split(currentState, "\n")
 	if len(stateLines) != 1 {
 		return "", fmt.Errorf("unexpected dpkg-query output: %s", currentState)
@@ -55,6 +56,7 @@ func (p *Provisioner) EnsurePackageInstalled(ctx context.Context, packageName st
 		logger.Debug("package already installed", zap.String("package", packageName))
 		return false, nil
 	}
+	logger.Debug("package not installed", zap.String("package", packageName), zap.Error(err))
 
 	aptUpdateRes, err := p.CommandExecutor.Exec(ctx, "apt update")
 	logger.Debug("apt update", zap.Error(err), zap.ByteString("output", aptUpdateRes))

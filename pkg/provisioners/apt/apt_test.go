@@ -77,19 +77,12 @@ func TestCustomPackage(t *testing.T) {
 		Update:        true,
 	}
 
-	updated, err := aptProvisioner.EnsureRepository(ctx, args)
-	r.NoError(err)
-	r.True(updated, "repository should have been updated")
+	test.RequireIdempotence(r, func() (bool, error) {
+		return aptProvisioner.EnsureRepository(ctx, args)
+	})
 
-	updated, err = aptProvisioner.EnsureRepository(ctx, args)
-	r.NoError(err)
-	r.False(updated, "second run should do nothing")
+	test.RequireIdempotence(r, func() (bool, error) {
+		return aptProvisioner.EnsurePackageInstalled(ctx, nvidiaCustomPackage)
+	})
 
-	updated, err = aptProvisioner.EnsurePackageInstalled(ctx, nvidiaCustomPackage)
-	r.NoError(err)
-	r.True(updated, "package should have been installed")
-
-	updated, err = aptProvisioner.EnsurePackageInstalled(ctx, nvidiaCustomPackage)
-	r.NoError(err)
-	r.False(updated, "second run should do nothing")
 }

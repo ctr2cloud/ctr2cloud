@@ -107,10 +107,10 @@ func (p *Provider) GetCommandExecutor(id string) (*compute.CommandExecutor, erro
 	// wait for DNS to be resolvable before returning executor
 	for {
 		op, err := p.client.ExecContainer(id, api.ContainerExecPost{
-			Command: []string{"resolvectl", "query", "archive.ubuntu.com"},
+			Command: []string{"resolvectl", "query", "captive.apple.com"},
 		}, nil)
 		if err != nil {
-			return nil, fmt.Errorf("resolving archive.ubuntu.com: %w", err)
+			return nil, fmt.Errorf("resolving captive.apple.com: %w", err)
 		}
 		err = op.Wait()
 		if err != nil {

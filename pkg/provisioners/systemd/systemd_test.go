@@ -19,12 +19,15 @@ func TestEnsureServiceEnabledNow(t *testing.T) {
 	executor, err := executorFactory()
 	r.NoError(err)
 
-	// systemd dbus service needs some time to come up
-	// TODO: move this check inside provisioner
-	time.Sleep(time.Second * 1)
-
-	sProvisioner := Provisioner{CommandExecutor: executor}
 	fProvisioner := file.Provisioner{CommandExecutor: executor}
+	sProvisioner := Provisioner{CommandExecutor: executor}
+
+	t.Run("os-release", func(t *testing.T) {
+		osReleaseInfo, err := sProvisioner.GetOSRelease(ctx)
+		r.NoError(err)
+		r.Equal("ubuntu", osReleaseInfo["ID"])
+		r.Equal("Ubuntu", osReleaseInfo["NAME"])
+	})
 
 	serviceName := fmt.Sprintf("%s.service", testEnsureServiceEnabledNowInstanceName)
 	servicePath := filepath.Join("/etc/systemd/system", serviceName)
@@ -43,6 +46,10 @@ WantedBy=multi-user.target
 	updated, err := fProvisioner.EnsureFileContentsString(ctx, servicePath, serviceContents)
 	r.NoError(err)
 	r.True(updated)
+
+	// systemd dbus service needs some time to come up
+	// TODO: move this check inside provisioner
+	time.Sleep(time.Second * 1)
 
 	test.RequireIdempotence(r, func() (bool, error) {
 		return sProvisioner.EnsureServiceEnabledNow(ctx, serviceName, false)

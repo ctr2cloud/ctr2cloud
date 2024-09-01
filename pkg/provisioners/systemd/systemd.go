@@ -3,6 +3,7 @@ package systemd
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/ctr2cloud/ctr2cloud/pkg/generic/compute"
 	"github.com/juju/zaputil/zapctx"
@@ -45,4 +46,25 @@ func (p *Provisioner) EnsureServiceEnabledNow(ctx context.Context, service strin
 		return true, fmt.Errorf("enabling service: %w", err)
 	}
 	return true, nil
+}
+
+func (p *Provisioner) GetOSRelease(ctx context.Context) (map[string]string, error) {
+	logger := zapctx.Logger(ctx)
+	cmd := "cat /etc/os-release"
+	rawOSRelease, err := p.CommandExecutor.ExecString(ctx, cmd)
+	if err != nil {
+		return nil, fmt.Errorf("get os-release: %w", err)
+	}
+
+	rawOSRelease = strings.Trim(rawOSRelease, "\n")
+	osRelease := make(map[string]string)
+	for _, line := range strings.Split(rawOSRelease, "\n") {
+		parts := strings.SplitN(line, "=", 2)
+		if len(parts) != 2 {
+			logger.Warn("invalid os-release line", zap.String("line", line))
+			continue
+		}
+		osRelease[parts[0]] = strings.Trim(parts[1], "\"")
+	}
+	return osRelease, nil
 }

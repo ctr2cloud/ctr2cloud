@@ -5,7 +5,10 @@ type chanByteWriterCloser struct {
 }
 
 func (c *chanByteWriterCloser) Write(p []byte) (n int, err error) {
-	c.ch <- p
+	// p may be reused by the caller, so we need to copy it
+	pCopy := make([]byte, len(p))
+	copy(pCopy, p)
+	c.ch <- pCopy
 	return len(p), nil
 }
 

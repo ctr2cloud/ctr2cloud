@@ -22,7 +22,7 @@ func TestEnsureFileContents(t *testing.T) {
 	executorFactory := test.GetLXDExecutorFactory(t, testEnsureFileContentsInstanceName)
 
 	randomBytes := make([]byte, 10<<20)
-	_, err := rand.Read(randomBytes)
+	_, err := rand.New(rand.NewSource(1)).Read(randomBytes)
 	require.NoError(t, err)
 
 	tests := []testEnsureFileContentsCase{
@@ -65,6 +65,26 @@ func TestEnsureFileContents(t *testing.T) {
 			updated, err = provisioner.EnsureFileContents(ctx, tc.Path, tc.Contents)
 			r.NoError(err)
 			r.False(updated)
+		})
+	}
+
+}
+
+const testGetFileContentsInstanceName = "test-get-file-contents"
+
+func TestGetFileContents(t *testing.T) {
+	executor, err := test.GetLXDExecutorFactory(t, testGetFileContentsInstanceName)()
+	require.NoError(t, err)
+	ctx, _ := test.DefaultPreamble(t, time.Second*10)
+
+	fProvisioner := Provisioner{executor}
+
+	paths := []string{"/etc/passwd", "/etc/group", "/etc/hosts", "/usr/bin/zcmp", "/usr/bin/zgrep"}
+
+	for _, path := range paths {
+		t.Run(path, func(t *testing.T) {
+			_, err = fProvisioner.GetFileContents(ctx, path)
+			require.NoError(t, err)
 		})
 	}
 

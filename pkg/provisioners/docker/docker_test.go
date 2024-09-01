@@ -9,9 +9,9 @@ import (
 
 const testEnsureDockerDaemon = "test-ensure-docker-daemon"
 
-func TestEnsureDockerDaemon(t *testing.T) {
+func TestDocker(t *testing.T) {
 	executorFactory := test.GetLXDExecutorFactory(t, testEnsureDockerDaemon)
-	ctx, r := test.DefaultPreamble(t, time.Second*60)
+	ctx, r := test.DefaultPreamble(t, time.Minute*5)
 
 	executor, err := executorFactory()
 	r.NoError(err)
@@ -20,5 +20,17 @@ func TestEnsureDockerDaemon(t *testing.T) {
 
 	test.RequireIdempotence(r, func() (bool, error) {
 		return provisioner.EnsureDockerDaemon(ctx)
+	})
+
+	spec := ContainerSpec{
+		Image: "nginx",
+		Name:  "nginx",
+		Mounts: map[string]string{
+			"/var/www": "/var/www",
+		},
+		Restart: true,
+	}
+	test.RequireIdempotence(r, func() (bool, error) {
+		return provisioner.EnsureContainer(ctx, spec)
 	})
 }

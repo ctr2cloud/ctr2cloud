@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
+	"os"
 	"time"
 
 	lxd "github.com/canonical/lxd/client"
@@ -104,12 +106,40 @@ func (p *Provider) Delete(id string) error {
 	return nil
 }
 
+// WriteCloserWrapper is a wrapper that implements io.WriteCloser interface
+// but ignores the Write operation.
+type WriteCloserWrapper struct {
+	writer io.Writer
+}
+
+// Write is the Write method implementation for WriteCloserWrapper.
+// It ignores all writes.
+func (w *WriteCloserWrapper) Write(p []byte) (n int, err error) {
+	// Ignore the write, return length of p to simulate a successful write.
+	return w.writer.Write(p)
+}
+
+// Close delegates the close operation to the underlying io.Closer.
+func (w *WriteCloserWrapper) Close() error {
+	return nil
+}
+
+// NewWriteCloserWrapper returns a new WriteCloserWrapper wrapping the provided io.Closer.
+func NewWriteCloserWrapper(closer io.Writer) *WriteCloserWrapper {
+	return &WriteCloserWrapper{writer: closer}
+}
+
 func (p *Provider) GetCommandExecutor(id string) (*compute.CommandExecutor, error) {
 	// wait for DNS to be resolvable before returning executor
 	for {
+		fmt.Fprintln(os.Stderr, "waiting for DNS to be resolvable")
 		op, err := p.client.ExecContainer(id, api.ContainerExecPost{
 			Command: []string{"resolvectl", "query", "captive.apple.com"},
-		}, nil)
+		}, &lxd.ContainerExecArgs{
+			Stdin:  nil,
+			Stdout: NewWriteCloserWrapper(os.Stdout),
+			Stderr: NewWriteCloserWrapper(os.Stderr),
+		})
 		if err != nil {
 			return nil, fmt.Errorf("resolving captive.apple.com: %w", err)
 		}

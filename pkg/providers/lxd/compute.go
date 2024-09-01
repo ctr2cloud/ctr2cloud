@@ -134,7 +134,8 @@ func (p *Provider) GetCommandExecutor(id string) (*compute.CommandExecutor, erro
 	for {
 		fmt.Fprintln(os.Stderr, "waiting for DNS to be resolvable")
 		op, err := p.client.ExecContainer(id, api.ContainerExecPost{
-			Command: []string{"resolvectl", "query", "captive.apple.com"},
+			Command:   []string{"resolvectl", "query", "captive.apple.com"},
+			WaitForWS: true,
 		}, &lxd.ContainerExecArgs{
 			Stdin:  nil,
 			Stdout: NewWriteCloserWrapper(os.Stdout),

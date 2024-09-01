@@ -18,6 +18,8 @@ jobs:
       LXD_SOCKET: /var/snap/lxd/common/lxd/unix.socket
     steps:
       - uses: actions/checkout@v4
+      - name: Setup upterm session
+        uses: lhotari/action-upterm@v1
       - uses: canonical/setup-lxd@8fb85546a934dfb994becf81341dd387ffe6aabb
         with:
           # we use this version specifically because it should already be installed on

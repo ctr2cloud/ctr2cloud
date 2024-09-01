@@ -3,6 +3,7 @@ package lxd
 import (
 	"context"
 	"fmt"
+	"time"
 
 	lxd "github.com/canonical/lxd/client"
 	"github.com/canonical/lxd/shared/api"
@@ -103,6 +104,35 @@ func (p *Provider) Delete(id string) error {
 }
 
 func (p *Provider) GetCommandExecutor(id string) (*compute.CommandExecutor, error) {
+	// wait for DNS to be resolvable before returning executor
+	for {
+		op, err := p.client.ExecContainer(id, api.ContainerExecPost{
+			Command: []string{"resolvectl", "query", "archive.ubuntu.com"},
+		}, nil)
+		if err != nil {
+			return nil, fmt.Errorf("resolving archive.ubuntu.com: %w", err)
+		}
+		err = op.Wait()
+		if err != nil {
+			return nil, fmt.Errorf("resolvectl command error: %w", err)
+		}
+		opAPI := op.Get()
+		if opAPI.Metadata == nil {
+			return nil, fmt.Errorf("resolvectl command metadata is nil")
+		}
+		codeRaw, ok := opAPI.Metadata["return"].(float64)
+		if !ok {
+			return nil, fmt.Errorf("resolvectl command metadata return is not a number")
+		}
+		code := int(codeRaw)
+		if code == 0 {
+			break
+		}
+		// TODO: add logger
+		// fmt.Fprintf(os.Stderr, "waiting for DNS to be resolvable. got code %d\n", code)
+		time.Sleep(time.Millisecond * 200)
+	}
+
 	executor := compute_internal.NewPrimitiveCommandExecutor()
 	stdin, stdout, stderr := executor.GetShellIO()
 	op, err := p.client.ExecContainer(id, api.ContainerExecPost{

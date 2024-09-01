@@ -2,6 +2,7 @@ package test
 
 import (
 	"testing"
+	"time"
 
 	"github.com/ctr2cloud/ctr2cloud/pkg/generic/compute"
 	"github.com/ctr2cloud/ctr2cloud/pkg/providers/lxd"
@@ -34,6 +35,10 @@ func GetLXDExecutorFactory(t *testing.T, instanceName string) func() (*compute.C
 		err := p.Delete(instanceId)
 		r.NoError(err)
 	})
+
+	// systemd dbus service needs some time to come up
+	// TODO: move this check inside provisioner
+	time.Sleep(time.Second * 1)
 
 	return func() (*compute.CommandExecutor, error) {
 		return p.GetCommandExecutor(instanceId)

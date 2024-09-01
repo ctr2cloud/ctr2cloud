@@ -47,10 +47,6 @@ WantedBy=multi-user.target
 	r.NoError(err)
 	r.True(updated)
 
-	// systemd dbus service needs some time to come up
-	// TODO: move this check inside provisioner
-	time.Sleep(time.Second * 1)
-
 	test.RequireIdempotence(r, func() (bool, error) {
 		return sProvisioner.EnsureServiceEnabledNow(ctx, serviceName, false)
 	})

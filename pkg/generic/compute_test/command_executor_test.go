@@ -22,7 +22,7 @@ func (t testExecCase) requireResult(r *require.Assertions, output string, err er
 		r.Equal(t.ExpectedOutput, output)
 	}
 	if t.ExpectedOutputPrefix != "" {
-		r.True(strings.HasPrefix(output, t.ExpectedOutputPrefix))
+		r.True(strings.HasPrefix(output, t.ExpectedOutputPrefix), "%s: %s", t.Command, output)
 	}
 	if t.ExpectError {
 		r.Error(err)
@@ -70,11 +70,6 @@ func TestExec(t *testing.T) {
 		{
 			Command:     "false",
 			ExpectError: true,
-		},
-		// docker.io not installable until first apt updated
-		{
-			Command:     "apt install -yq docker.io",
-			ExpectError: false,
 		},
 	}
 

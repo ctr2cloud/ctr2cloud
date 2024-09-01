@@ -16,7 +16,7 @@ func GetLXDExecutorFactory(t *testing.T, instanceName string) func() (*compute.C
 
 	err = p.Create(compute.InstanceSpec{
 		Name:  instanceName,
-		Image: "ubuntu:20.04",
+		Image: "debian/bookworm",
 	})
 	r.NoError(err)
 

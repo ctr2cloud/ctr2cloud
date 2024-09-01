@@ -37,9 +37,16 @@ jobs:
         uses: gotesttools/gotestfmt-action@v2
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
+      # by pulling the image first, we can get more accurate test timings
+      - name: ensure lxd image is pulled
+        run: lxc init ubuntu:22.04 dummy
       - name: test
-        run: go test -json -v ./... 2>&1 | tee /tmp/gotest.log | gotestfmt
+        run: go test -json -v ./... 2>&1 | tee /tmp/gotest.log
+      - name: formatted-test
+        if: always()
+        run: gotestfmt -input /tmp/gotest.log
       - name: Upload test log
+        if: always()
         uses: actions/upload-artifact@v2
         with:
           name: test-log

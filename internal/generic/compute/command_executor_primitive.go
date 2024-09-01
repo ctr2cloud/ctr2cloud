@@ -51,6 +51,8 @@ func (e *PrimitiveCommandExecutor) ExecStream(ctx context.Context, cmd string) c
 
 	logger := zapctx.Logger(ctx).With(zap.String("sub", "PrimitiveCommandExecutor.ExecStream"))
 
+	logger.Debug("waiting for clean shell")
+
 	// if this is the first command, we need to wait for a clean shell
 	if e.firstCommand {
 		firstCtx, cancel := context.WithTimeout(ctx, time.Second*2)
@@ -58,6 +60,15 @@ func (e *PrimitiveCommandExecutor) ExecStream(ctx context.Context, cmd string) c
 		loop := true
 		for loop {
 			select {
+			case <-time.After(time.Millisecond * 250):
+				logger.Debug("sending newline try to get clean shell")
+				// if no response, send a newline to get a clean shell
+				_, err := e.stdinWriter.Write([]byte("\n"))
+				if err != nil {
+					resChan <- public.ExecStreamResult{Error: err}
+					close(resChan)
+					return resChan
+				}
 			case <-firstCtx.Done():
 				resChan <- public.ExecStreamResult{Error: ctx.Err()}
 				close(resChan)

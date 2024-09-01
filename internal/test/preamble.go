@@ -9,6 +9,7 @@ import (
 
 	"github.com/juju/zaputil/zapctx"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest"
 )
 
@@ -16,6 +17,7 @@ import (
 func DefaultPreamble(t *testing.T, timeout time.Duration) (context.Context, *require.Assertions) {
 	r := require.New(t)
 	logger := zaptest.NewLogger(t)
+	logger = logger.With(zap.String("Test", t.Name()))
 	ctx := zapctx.WithLogger(context.Background(), logger)
 	ctx, cancel := context.WithTimeout(ctx, timeout)
 	t.Cleanup(cancel)

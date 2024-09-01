@@ -22,13 +22,6 @@ func TestEnsureServiceEnabledNow(t *testing.T) {
 	fProvisioner := file.Provisioner{CommandExecutor: executor}
 	sProvisioner := Provisioner{CommandExecutor: executor}
 
-	t.Run("os-release", func(t *testing.T) {
-		osReleaseInfo, err := sProvisioner.GetOSRelease(ctx)
-		r.NoError(err)
-		r.Equal("debian", osReleaseInfo["ID"])
-		r.Equal("Debian GNU/Linux", osReleaseInfo["NAME"])
-	})
-
 	serviceName := fmt.Sprintf("%s.service", testEnsureServiceEnabledNowInstanceName)
 	servicePath := filepath.Join("/etc/systemd/system", serviceName)
 
@@ -54,4 +47,19 @@ WantedBy=multi-user.target
 	test.RequireNonIdempotence(r, func() (bool, error) {
 		return sProvisioner.EnsureServiceEnabledNow(ctx, serviceName, true)
 	})
+}
+
+func TestOSRelease(t *testing.T) {
+	executorFactory := test.GetLXDExecutorFactory(t, testEnsureServiceEnabledNowInstanceName)
+	ctx, r := test.DefaultPreamble(t, time.Second*20)
+
+	executor, err := executorFactory()
+	r.NoError(err)
+
+	sProvisioner := Provisioner{CommandExecutor: executor}
+
+	osReleaseInfo, err := sProvisioner.GetOSRelease(ctx)
+	r.NoError(err)
+	r.Equal("debian", osReleaseInfo["ID"])
+	r.Equal("Debian GNU/Linux", osReleaseInfo["NAME"])
 }

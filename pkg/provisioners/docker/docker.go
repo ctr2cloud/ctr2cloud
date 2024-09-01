@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/ctr2cloud/ctr2cloud/pkg/generic/compute"
+	"github.com/ctr2cloud/ctr2cloud/pkg/pipeline"
 	"github.com/ctr2cloud/ctr2cloud/pkg/provisioners/apt"
 	"github.com/ctr2cloud/ctr2cloud/pkg/provisioners/systemd"
 	"github.com/juju/zaputil/zapctx"
@@ -36,7 +37,7 @@ func (p *Provisioner) ensureDockerSocket(ctx context.Context) (bool, error) {
 func (p *Provisioner) EnsureDockerDaemon(ctx context.Context) (bool, error) {
 	aProvisioner := apt.Provisioner{CommandExecutor: p.CommandExecutor}
 
-	installed, err := aProvisioner.EnsurePackageInstalled(ctx, "docker.io")
+	installed, err := aProvisioner.EnsurePackageInstalled(ctx, "docker.io", false)
 	if err != nil {
 		return false, fmt.Errorf("ensure docker.io installed: %w", err)
 	}
@@ -156,4 +157,15 @@ func (p *Provisioner) EnsureContainer(ctx context.Context, spec ContainerSpec) (
 		return true, fmt.Errorf("create container: %w", err)
 	}
 	return true, nil
+}
+
+func (p *Provisioner) EnsureContainerP(spec ContainerSpec) pipeline.FuncT {
+	return func(ctx *pipeline.Context) error {
+		changed, err := p.EnsureContainer(ctx, spec)
+		if err != nil {
+			return err
+		}
+		ctx.SetResult(changed)
+		return nil
+	}
 }

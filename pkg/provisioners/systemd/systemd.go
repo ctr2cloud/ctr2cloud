@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/ctr2cloud/ctr2cloud/pkg/generic/compute"
+	"github.com/ctr2cloud/ctr2cloud/pkg/pipeline"
 	"github.com/juju/zaputil/zapctx"
 	"go.uber.org/zap"
 )
@@ -46,6 +47,17 @@ func (p *Provisioner) EnsureServiceEnabledNow(ctx context.Context, service strin
 		return true, fmt.Errorf("enabling service: %w", err)
 	}
 	return true, nil
+}
+
+func (p *Provisioner) EnsureServiceEnabledP(service string) pipeline.FuncT {
+	return func(ctx *pipeline.Context) error {
+		changed, err := p.EnsureServiceEnabledNow(ctx, service, ctx.PreviousHasChanges())
+		if err != nil {
+			return err
+		}
+		ctx.SetResult(changed)
+		return nil
+	}
 }
 
 func (p *Provisioner) GetOSRelease(ctx context.Context) (map[string]string, error) {

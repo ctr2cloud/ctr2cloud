@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/ctr2cloud/ctr2cloud/pkg/generic/compute"
+	"github.com/ctr2cloud/ctr2cloud/pkg/pipeline"
 	"github.com/juju/zaputil/zapctx"
 	"go.uber.org/zap"
 )
@@ -75,8 +76,32 @@ func (p *Provisioner) EnsureFileContents(ctx context.Context, path string, conte
 	return true, nil
 }
 
+// EnsureFileContentsP is the pipeline version of EnsureFileContents
+func (p *Provisioner) EnsureFileContentsP(path string, contents []byte) pipeline.FuncT {
+	return func(ctx *pipeline.Context) error {
+		changed, err := p.EnsureFileContents(ctx, path, contents)
+		if err != nil {
+			return err
+		}
+		ctx.SetResult(changed)
+		return nil
+	}
+}
+
 func (p *Provisioner) EnsureFileContentsString(ctx context.Context, path, contents string) (bool, error) {
 	return p.EnsureFileContents(ctx, path, []byte(contents))
+}
+
+// EnsureFileContentsStringP is the pipeline version of EnsureFileContentsString
+func (p *Provisioner) EnsureFileContentsStringP(path, contents string) pipeline.FuncT {
+	return func(ctx *pipeline.Context) error {
+		changed, err := p.EnsureFileContentsString(ctx, path, contents)
+		if err != nil {
+			return err
+		}
+		ctx.SetResult(changed)
+		return nil
+	}
 }
 
 func (p *Provisioner) GetFileContents(ctx context.Context, path string) ([]byte, error) {

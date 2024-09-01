@@ -58,6 +58,14 @@ func (e *PrimitiveCommandExecutor) ExecStream(ctx context.Context, cmd string) c
 		loop := true
 		for loop {
 			select {
+			case <-time.After(time.Millisecond * 250):
+				// if no response, send a newline to get a clean shell
+				_, err := e.stdinWriter.Write([]byte("\n"))
+				if err != nil {
+					resChan <- public.ExecStreamResult{Error: err}
+					close(resChan)
+					return resChan
+				}
 			case <-firstCtx.Done():
 				resChan <- public.ExecStreamResult{Error: ctx.Err()}
 				close(resChan)

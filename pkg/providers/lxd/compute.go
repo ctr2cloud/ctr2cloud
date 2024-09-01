@@ -2,6 +2,7 @@ package lxd
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -112,8 +113,13 @@ func (p *Provider) GetCommandExecutor(id string) (*compute.CommandExecutor, erro
 		if err != nil {
 			return nil, fmt.Errorf("resolving captive.apple.com: %w", err)
 		}
-		err = op.Wait()
+		ctx, cancel := context.WithTimeout(context.Background(), time.Second*1)
+		err = op.WaitContext(ctx)
+		cancel()
 		if err != nil {
+			if errors.Is(err, context.DeadlineExceeded) {
+				continue
+			}
 			return nil, fmt.Errorf("resolvectl command error: %w", err)
 		}
 		opAPI := op.Get()

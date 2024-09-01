@@ -41,7 +41,7 @@ jobs:
         run: go test -json -v ./... 2>&1 | tee /tmp/gotest.log
       - name: formatted-test
         if: always()
-        run: gotestfmt -f /tmp/gotest.log
+        run: gotestfmt -input /tmp/gotest.log
       - name: Upload test log
         if: always()
         uses: actions/upload-artifact@v2

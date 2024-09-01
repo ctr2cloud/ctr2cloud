@@ -78,3 +78,29 @@ func (p *Provisioner) EnsureFileContents(ctx context.Context, path string, conte
 func (p *Provisioner) EnsureFileContentsString(ctx context.Context, path, contents string) (bool, error) {
 	return p.EnsureFileContents(ctx, path, []byte(contents))
 }
+
+func (p *Provisioner) GetFileContents(ctx context.Context, path string) ([]byte, error) {
+	remoteMD5Sum, err := p.GetMD5Sum(ctx, path)
+	if err != nil {
+		return nil, fmt.Errorf("getting md5sum: %w", err)
+	}
+	contentsCmd := fmt.Sprintf("cat %s | base64 -w 0 ", path)
+	encodedContents, err := p.CommandExecutor.Exec(ctx, contentsCmd)
+	if err != nil {
+		return nil, fmt.Errorf("cat: %w", err)
+	}
+
+	contents := make([]byte, base64.StdEncoding.DecodedLen(len(encodedContents)))
+	n, err := base64.StdEncoding.Decode(contents, encodedContents)
+	if err != nil {
+		return nil, fmt.Errorf("decoding base64: %w", err)
+	}
+	contents = contents[:n]
+	localMD5Bytes := md5.Sum(contents)
+	localMD5 := hex.EncodeToString(localMD5Bytes[:])
+	if localMD5 != remoteMD5Sum {
+		return nil, fmt.Errorf("md5sum mismatch: expected %s, got %s", remoteMD5Sum, localMD5)
+	}
+
+	return contents, nil
+}

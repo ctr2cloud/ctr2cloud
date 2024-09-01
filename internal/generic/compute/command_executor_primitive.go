@@ -105,9 +105,7 @@ func (e *PrimitiveCommandExecutor) ExecStream(ctx context.Context, cmd string) c
 	hasFirstShell := false
 	go func() {
 		defer func() {
-			logger.Debug("closing resChan")
 			close(resChan)
-			logger.Debug("resChan closed")
 		}()
 		for {
 			select {

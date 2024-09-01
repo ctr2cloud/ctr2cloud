@@ -55,8 +55,8 @@ func (p *Provider) Create(spec compute.InstanceSpec) error {
 		Source: api.InstanceSource{
 			Type:     "image",
 			Protocol: "simplestreams",
-			Server:   "https://cloud-images.ubuntu.com/releases",
-			Alias:    "22.04",
+			Server:   "https://images.lxd.canonical.com",
+			Alias:    "debian/bookworm",
 		},
 		InstancePut: api.InstancePut{
 			Config: map[string]string{

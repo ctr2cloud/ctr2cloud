@@ -25,7 +25,7 @@ func TestEnsureServiceEnabledNow(t *testing.T) {
 	t.Run("os-release", func(t *testing.T) {
 		osReleaseInfo, err := sProvisioner.GetOSRelease(ctx)
 		r.NoError(err)
-		r.Equal("ubuntu", osReleaseInfo["ID"])
+		r.Equal("Debian GNU/Linux", osReleaseInfo["ID"])
 		r.Equal("Ubuntu", osReleaseInfo["NAME"])
 	})
 

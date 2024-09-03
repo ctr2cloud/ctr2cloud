@@ -82,7 +82,7 @@ func TestCustomPackage(t *testing.T) {
 	})
 
 	test.RequireIdempotence(r, func() (bool, error) {
-		return aptProvisioner.EnsurePackageInstalled(ctx, nvidiaCustomPackage)
+		return aptProvisioner.EnsurePackageInstalled(ctx, nvidiaCustomPackage, false)
 	})
 
 }

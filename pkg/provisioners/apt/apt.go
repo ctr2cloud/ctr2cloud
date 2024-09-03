@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/ctr2cloud/ctr2cloud/pkg/generic/compute"
+	"github.com/ctr2cloud/ctr2cloud/pkg/pipeline"
 	"github.com/ctr2cloud/ctr2cloud/pkg/provisioners/file"
 	"github.com/juju/zaputil/zapctx"
 	"go.uber.org/zap"
@@ -49,14 +50,17 @@ func (p *Provisioner) GetPackageVersion(ctx context.Context, packageName string)
 	return stateLine[1], nil
 }
 
-func (p *Provisioner) EnsurePackageInstalled(ctx context.Context, packageName string) (bool, error) {
+func (p *Provisioner) EnsurePackageInstalled(ctx context.Context, packageName string, update bool) (bool, error) {
 	logger := zapctx.Logger(ctx)
 	_, err := p.GetPackageVersion(ctx, packageName)
 	if err == nil {
 		logger.Debug("package already installed", zap.String("package", packageName))
-		return false, nil
+		if !update {
+			return false, nil
+		}
+	} else {
+		logger.Debug("package not installed", zap.String("package", packageName), zap.Error(err))
 	}
-	logger.Debug("package not installed", zap.String("package", packageName), zap.Error(err))
 
 	aptUpdateRes, err := p.CommandExecutor.Exec(ctx, "apt update")
 	logger.Debug("apt update", zap.Error(err), zap.ByteString("output", aptUpdateRes))
@@ -70,6 +74,18 @@ func (p *Provisioner) EnsurePackageInstalled(ctx context.Context, packageName st
 		return false, fmt.Errorf("apt install: %w", err)
 	}
 	return true, nil
+}
+
+// EnsurePackageInstalledP is the pipeline version of EnsurePackageInstalled
+func (p *Provisioner) EnsurePackageInstalledP(packageName string) pipeline.FuncT {
+	return func(ctx *pipeline.Context) error {
+		updated, err := p.EnsurePackageInstalled(ctx, packageName, ctx.PreviousHasChanges())
+		if err != nil {
+			return err
+		}
+		ctx.SetResult(updated)
+		return nil
+	}
 }
 
 // ensureAptKey ensures that the given ASCII armorred key is installed in the apt keyring
@@ -117,4 +133,16 @@ func (p *Provisioner) EnsureRepository(ctx context.Context, args EnsureRepositor
 		}
 	}
 	return keyUpdated || repositoryUpdated, nil
+}
+
+// EnsureRepositoryP is the pipeline version of EnsureRepository
+func (p *Provisioner) EnsureRepositoryP(args EnsureRepositoryArgs) pipeline.FuncT {
+	return func(ctx *pipeline.Context) error {
+		updated, err := p.EnsureRepository(ctx, args)
+		if err != nil {
+			return err
+		}
+		ctx.SetResult(updated)
+		return nil
+	}
 }
